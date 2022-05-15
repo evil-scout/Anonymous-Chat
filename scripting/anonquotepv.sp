@@ -97,6 +97,7 @@ public Action OnSay(client, const String:command[], argc)
 		return Plugin_Continue;
 	
 	if (blocked == true) {
+		PrintToChat(client, "[SM] You are flooding the server!");
 		return Plugin_Handled;
 	}
 	
