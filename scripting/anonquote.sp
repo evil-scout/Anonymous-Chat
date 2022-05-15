@@ -8,20 +8,21 @@ public Plugin myinfo =
 	name = "Anon Chat",
 	author = "evilscout",
 	description = "Remove usernames from chat, by request of Gaylord.",
-	version = "1.1"
+	version = "1.2"
 };
 
 enum struct PlayerInfo {
 	float lastTime; /* Last time player used say or say_team */
 	int tokenCount; /* Number of flood tokens player has */
+	bool blocked; /* Has a players message been blocked */
 }
 
 PlayerInfo playerinfo[MAXPLAYERS+1];
 
 ConVar sm_flood_time;									/* Handle to sm_flood_time convar */
+ConVar sm_anon_names;									/* Handle to sm_anon_names convar */
 float max_chat;
-bool blocked;
-
+int anon_names;
 
 public void OnPluginStart()
 {	
@@ -32,11 +33,14 @@ public void OnPluginStart()
 	AddCommandListener(FloodCheck, "say_team");
 	AddCommandListener(FloodResult, "say_team");
 	sm_flood_time = CreateConVar("sm_flood_time", "0.75", "Amount of time allowed between chat messages");
+	sm_anon_names = CreateConVar("sm_anon_names", "1", ("Anonymous Chat" ... " : 0 - Names will only be anonymous when using greentext 1 - Names will always be anonymous"), _, true, 0.0, true, 1.0); 
+	AutoExecConfig(true, "anonquote");
 }
 public void OnClientPutInServer(int client)
 {
 	playerinfo[client].lastTime = 0.0;
 	playerinfo[client].tokenCount = 0;
+	playerinfo[client].blocked = false;
 }
 
 public Action FloodCheck(client, const String:command[], argc)
@@ -44,19 +48,19 @@ public Action FloodCheck(client, const String:command[], argc)
 	max_chat = sm_flood_time.FloatValue;
 	if (max_chat <= 0.0)
 	{
-		blocked = false;
+		playerinfo[client].blocked = false;
 		return;
 	}
 	if (playerinfo[client].lastTime >= GetGameTime())
 	{
 		if (playerinfo[client].tokenCount >= 3)
 		{
-			blocked = true;
+			playerinfo[client].blocked = true;
 			return;
 		}
 	}
 	
-	blocked = false;
+	playerinfo[client].blocked = false;
 }
 
 public Action FloodResult(client, const String:command[], argc)
@@ -72,7 +76,7 @@ public Action FloodResult(client, const String:command[], argc)
 	if (playerinfo[client].lastTime >= curTime)
 	{
 		/* If the last message was blocked, update their time limit */
-		if (blocked)
+		if (playerinfo[client].blocked)
 		{
 			newTime += 3.0;
 		}
@@ -93,27 +97,32 @@ public Action FloodResult(client, const String:command[], argc)
 
 public Action OnSay(client, const String:command[], argc)
 {
+	anon_names = sm_anon_names.IntValue;
+	
 	if(!client || client > MaxClients || !IsClientInGame(client)) 
 		return Plugin_Continue;
 	
-	if (blocked == true) {
+	if (playerinfo[client].blocked == true) {
 		PrintToChat(client, "[SM] You are flooding the server!");
 		return Plugin_Handled;
 	}
 	
 	decl String:text[128];
-	if (text[0] != '/') {
-		GetCmdArgString(text, sizeof(text));
-		StripQuotes(text);
+	GetCmdArgString(text, sizeof(text));
+	StripQuotes(text);
+	if (anon_names == 1) {
 		decl String:message[256];
-	
-		if (text[0] == '>')
-			Format(message, sizeof(message), "\x05%s\x01 : \x05%s", "Anonymous", text);
-		else 
-			Format(message, sizeof(message), "\x05%s\x01 : %s", "Anonymous", text);
+		Format(message, sizeof(message), "\x05%s\x01 : \x05%s", "Anonymous", text);
 		
 		PrintToChatAll(message);
+		return Plugin_Handled;
 	}
-	
-	return Plugin_Handled;
+	else if (text[0] == '>') {
+		decl String:message[256];
+		Format(message, sizeof(message), "\x05%s\x01 : \x05%s", "Anonymous", text);
+		
+		PrintToChatAll(message);
+		return Plugin_Handled;
+	}
+	return Plugin_Continue;
 }
