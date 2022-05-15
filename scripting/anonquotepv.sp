@@ -101,18 +101,14 @@ public Action OnSay(client, const String:command[], argc)
 	}
 	
 	decl String:text[128];
-	if (text[0] != '/') {
-		GetCmdArgString(text, sizeof(text));
-		StripQuotes(text);
+	GetCmdArgString(text, sizeof(text));
+	StripQuotes(text);
+	if (text[0] == '>') {
 		decl String:message[256];
-	
-		if (text[0] == '>')
-			Format(message, sizeof(message), "\x05%s\x01 : \x05%s", "Anonymous", text);
-		else 
-			Format(message, sizeof(message), "\x05%s\x01 : %s", "Anonymous", text);
+		Format(message, sizeof(message), "\x05%s\x01 : \x05%s", "Anonymous", text);
 		
 		PrintToChatAll(message);
+		return Plugin_Handled;
 	}
-	
-	return Plugin_Handled;
+	return Plugin_Continue;
 }
